@@ -1,0 +1,124 @@
+
+// Program: Channel Vertex Indicator
+// Developer's Site: forexroboteasy.com
+// Development: Forex Robot Easy Team
+
+// Include necessary libraries
+#include <Trade\PositionInfo.mqh>
+#include <Trade\Trade.mqh>
+
+// Define indicator parameters
+input int period = 14;
+input ENUM_APPLIED_PRICE applied_price = PRICE_CLOSE;
+
+// Define global variables
+double vertex;
+double upperLine;
+double lowerLine;
+
+// Initialize the indicator
+int OnInit()
+{
+    // Initialize indicator buffers
+    SetIndexBuffer(0, vertex);
+    SetIndexBuffer(1, upperLine);
+    SetIndexBuffer(2, lowerLine);
+    
+    // Set indicator labels
+    SetIndexLabel(0, 'Vertex');
+    SetIndexLabel(1, 'Upper Line');
+    SetIndexLabel(2, 'Lower Line');
+    
+    // Set indicator style
+    SetIndexStyle(0, DRAW_LINE);
+    SetIndexStyle(1, DRAW_LINE);
+    SetIndexStyle(2, DRAW_LINE);
+    
+    // Set indicator colors
+    SetIndexDrawBegin(0, period);
+    SetIndexDrawBegin(1, period);
+    SetIndexDrawBegin(2, period);
+    
+    return(INIT_SUCCEEDED);
+}
+
+// Calculate indicator values
+int OnCalculate(const int rates_total,
+                const int prev_calculated,
+                const datetime &time[],
+                const double &open[],
+                const double &high[],
+                const double &low[],
+                const double &close[],
+                const long &tick_volume[],
+                const long &volume[],
+                const int &spread[])
+{
+    // Calculate indicator values for each bar
+    for (int i = prev_calculated; i < rates_total; i++)
+    {
+        if (i < period)
+        {
+            vertex[i] = 0.0;
+            upperLine[i] = 0.0;
+            lowerLine[i] = 0.0;
+        }
+        else
+        {
+            double sum = 0.0;
+            for (int j = 0; j < period; j++)
+            {
+                sum += high[i - j] + low[i - j];
+            }
+            vertex[i] = sum / (2 * period);
+            upperLine[i] = vertex[i] + (high[i] - low[i]) / 2;
+            lowerLine[i] = vertex[i] - (high[i] - low[i]) / 2;
+        }
+    }
+    
+    // Return the number of calculated bars
+    return(rates_total);
+}
+
+// Define trading functions
+void OpenPosition(int type)
+{
+    CPositionInfo position;
+    if (position.SelectByIndex(0))
+    {
+        CTrade trade;
+        trade.PositionOpen(position.Symbol(), type, position.Volume());
+    }
+}
+
+void ClosePosition(int type)
+{
+    CPositionInfo position;
+    if (position.SelectByIndex(0))
+    {
+        CTrade trade;
+        trade.PositionClose(position.Ticket(), position.Volume());
+    }
+}
+
+// Execute trading decisions
+void OnTick()
+{
+    if (vertex[0] > upperLine[0])
+    {
+        OpenPosition(POSITION_TYPE_SELL);
+    }
+    else if (vertex[0] < lowerLine[0])
+    {
+        OpenPosition(POSITION_TYPE_BUY);
+    }
+    
+    if (vertex[0] < upperLine[0])
+    {
+        ClosePosition(POSITION_TYPE_SELL);
+    }
+    else if (vertex[0] > lowerLine[0])
+    {
+        ClosePosition(POSITION_TYPE_BUY);
+    }
+}
